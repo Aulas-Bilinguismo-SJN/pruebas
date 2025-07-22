@@ -1,14 +1,32 @@
-const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbz1qj9a7MW-d5EBk75BV5cMJAWo64tr8pWwoDdq25BB2lSQ0uFsTJAbsqMUMRLfF9ypKg/exec';
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyMOLhHiKo3f7Uc2kmZNlbok7grYgZV1MzTJF4YTa-AoxZ1fC81Oac5RU4qpHLbgVMELQ/exec';
 
-// Datos de los 50 items
+let registrosBaseA = [];
+
+// Obtener datos de BaseA al inicio
+async function cargarBaseA() {
+    try {
+        const res = await fetch(`${BACKEND_URL}?action=obtenerBaseA`);
+        const json = await res.json();
+        if (json.success) {
+            registrosBaseA = json.data;
+            console.log("BaseA cargada:", registrosBaseA);
+        } else {
+            alert("Error al cargar BaseA.");
+        }
+    } catch (error) {
+        console.error("Error al cargar BaseA:", error);
+        alert("Error al cargar BaseA.");
+    }
+}
+
+function buscarPorDocumentoLocal(documento) {
+    return registrosBaseA.find(r => String(r["Documento"]).trim() === documento.trim());
+}
+
+// === Datos de los 50 items ===
 const items = [];
 for (let i = 1; i <= 50; i++) {
     items.push({ id: `item_${i}`, nombre: `${i}`, documento: "", profesor: "", materia: "" });
-}
-
-// Limpia y normaliza el documento ingresado
-function limpiarDocumento(doc) {
-    return doc.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').trim();
 }
 
 function mostrarModalItem(itemId) {
@@ -65,8 +83,7 @@ function mostrarModalItem(itemId) {
     btnCancelar.style.color = 'white';
 
     btnGuardar.addEventListener('click', async () => {
-        const documentoRaw = document.getElementById('documento').value;
-        const documento = limpiarDocumento(documentoRaw);
+        const documento = document.getElementById('documento').value.trim();
         const profesor = document.getElementById('profesor').value.trim();
         const materia = document.getElementById('materia').value.trim();
 
@@ -75,43 +92,36 @@ function mostrarModalItem(itemId) {
             return;
         }
 
-        try {
-            const res = await fetch(BACKEND_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "validarDocumento", documento })
-            });
-            const json = await res.json();
-
-            if (!json.success) {
-                alert("Documento no encontrado en BaseA.");
-                return;
-            }
-
-            // Guardar localmente
-            item.documento = documento;
-            item.profesor = profesor;
-            item.materia = materia;
-
-            // Registrar en BaseB como Préstamo
-            await fetch(BACKEND_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    action: "registrarOperacion",
-                    equipo: item.nombre,
-                    documento,
-                    profesor,
-                    materia,
-                    tipo: "Préstamo",
-                    comentario: ""
-                })
-            });
-
-            cerrarModal();
-            actualizarVista();
-        } catch (error) {
-            alert("Ocurrió un error al guardar.");
-            console.error(error);
+        const persona = buscarPorDocumentoLocal(documento);
+        if (!persona) {
+            alert("Documento no encontrado en BaseA.");
+            return;
         }
+
+        // Guardar localmente
+        item.documento = documento;
+        item.profesor = profesor;
+        item.materia = materia;
+
+        // Registrar en BaseB como Préstamo
+        await fetch(BACKEND_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: "registrarOperacion",
+                equipo: item.nombre,
+                documento,
+                profesor,
+                materia,
+                tipo: "Préstamo",
+                nombre: persona["Nombre Completo"] || "",
+                curso: persona["Curso"] || "",
+                telefono: persona["Teléfono"] || "",
+                comentario: ""
+            })
+        });
+
+        cerrarModal();
+        actualizarVista();
     });
 
     btnCancelar.addEventListener('click', cerrarModal);
@@ -173,31 +183,30 @@ function mostrarModalDesmarcar(itemId) {
 
     btnDesmarcar.addEventListener('click', async () => {
         const comentario = document.getElementById('comentario').value.trim();
+        const persona = buscarPorDocumentoLocal(item.documento);
 
-        try {
-            await fetch(BACKEND_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    action: "registrarOperacion",
-                    equipo: item.nombre,
-                    documento: item.documento,
-                    profesor: item.profesor,
-                    materia: item.materia || '',
-                    tipo: "Devolución",
-                    comentario: comentario
-                })
-            });
+        await fetch(BACKEND_URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: "registrarOperacion",
+                equipo: item.nombre,
+                documento: item.documento,
+                profesor: item.profesor,
+                materia: item.materia || '',
+                tipo: "Devolución",
+                nombre: persona?.["Nombre Completo"] || "",
+                curso: persona?.["Curso"] || "",
+                telefono: persona?.["Teléfono"] || "",
+                comentario: comentario
+            })
+        });
 
-            item.documento = "";
-            item.profesor = "";
-            item.materia = "";
+        item.documento = "";
+        item.profesor = "";
+        item.materia = "";
 
-            cerrarModal();
-            actualizarVista();
-        } catch (error) {
-            alert("Error al registrar la devolución.");
-            console.error(error);
-        }
+        cerrarModal();
+        actualizarVista();
     });
 
     btnCancelar.addEventListener('click', cerrarModal);
@@ -222,7 +231,7 @@ function actualizarVista() {
 }
 
 function crearGrilla() {
-    const contenedor = document.getElementById("malla");
+    const contenedor = document.getElementById("malla") || document.getElementById("contenedorEquipos");
     contenedor.innerHTML = "";
     contenedor.style.display = "grid";
     contenedor.style.gridTemplateColumns = "repeat(10, 1fr)";
@@ -252,9 +261,7 @@ function crearGrilla() {
 
         div.appendChild(numero);
         div.appendChild(estado);
-
         div.addEventListener("click", () => mostrarModalItem(item.id));
-
         contenedor.appendChild(div);
     });
 }
@@ -270,13 +277,16 @@ function resetearMalla() {
     }
 }
 
-window.onclick = function(event) {
+window.onclick = function (event) {
     const modal = document.getElementById('modalMetodos');
     if (event.target === modal) cerrarModal();
 }
 
-document.addEventListener('keydown', function(event) {
+document.addEventListener('keydown', function (event) {
     if (event.key === 'Escape') cerrarModal();
 });
 
-document.addEventListener('DOMContentLoaded', crearGrilla);
+document.addEventListener('DOMContentLoaded', async () => {
+    await cargarBaseA();
+    crearGrilla();
+});
