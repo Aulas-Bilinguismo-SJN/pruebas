@@ -1,4 +1,4 @@
-const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbyq2A9c6ULXsC99gTo-2Ni24J3bSnE4WErhFwnWKj5TPKUSEaHAb5s1g139U7rIBJoMzQ/exec';
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbxXdj4b1pHh7s64PZgHu6lP8OEr1u19BgMVVXXs86SlmGGhS3AB7P1ikXVYTB_x3JVbsQ/exec';
 
 // Datos de los 50 items
 const items = [];
