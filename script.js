@@ -1,9 +1,14 @@
-const BACKEND_URL = 'https://script.google.com/macros/s/AKfycby9gVsAM-BdMB0Ed7MQhf62vxNQZ-jRoSvCBV8RbnAbieHiQ3nIFwNrMxMroPYEVGzyTg/exec';
+const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbwnTLAqpo6w3L-L9Pq0CudmrXnh7fwhO2W267-Dbb7gehl-CUsrR74CVr3CaNM6TYB4ug/exec';
 
 // Datos de los 50 items
 const items = [];
 for (let i = 1; i <= 50; i++) {
     items.push({ id: `item_${i}`, nombre: `${i}`, documento: "", profesor: "", materia: "" });
+}
+
+// Limpia y normaliza el documento ingresado
+function limpiarDocumento(doc) {
+    return doc.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '').trim();
 }
 
 function mostrarModalItem(itemId) {
@@ -60,7 +65,8 @@ function mostrarModalItem(itemId) {
     btnCancelar.style.color = 'white';
 
     btnGuardar.addEventListener('click', async () => {
-        const documento = document.getElementById('documento').value.trim();
+        const documentoRaw = document.getElementById('documento').value;
+        const documento = limpiarDocumento(documentoRaw);
         const profesor = document.getElementById('profesor').value.trim();
         const materia = document.getElementById('materia').value.trim();
 
@@ -169,7 +175,6 @@ function mostrarModalDesmarcar(itemId) {
         const comentario = document.getElementById('comentario').value.trim();
 
         try {
-            // Registrar devolución
             await fetch(BACKEND_URL, {
                 method: 'POST',
                 body: JSON.stringify({
@@ -183,7 +188,6 @@ function mostrarModalDesmarcar(itemId) {
                 })
             });
 
-            // Limpiar
             item.documento = "";
             item.profesor = "";
             item.materia = "";
